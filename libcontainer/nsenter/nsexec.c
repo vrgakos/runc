@@ -364,6 +364,12 @@ void nsexec(void)
 		return;
 	}
 
+	/* make the process non-dumpable */
+	if (prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) != 0) {
+		pr_perror("failed to set process as non-dumpable");
+		exit(1);
+	}
+
 	// Retrieve the netlink header
 	struct nlmsghdr nl_msg_hdr;
 	int		len;
@@ -438,7 +444,7 @@ void nsexec(void)
 			pr_perror("setgid failed");
 			exit(1);
 		}
-    
+
 		if (setgroups(0, NULL) == -1) {
 			pr_perror("setgroups failed");
 			exit(1);
