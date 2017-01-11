@@ -11,6 +11,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/prctl.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <setjmp.h>
@@ -107,6 +108,12 @@ void nsexec()
 	snprintf(buf, sizeof(buf), "%d", pipenum);
 	if (strcmp(val, buf)) {
 		pr_perror("Unable to parse _LIBCONTAINER_INITPIPE");
+		exit(1);
+	}
+
+	/* make the process non-dumpable */
+	if (prctl(PR_SET_DUMPABLE, 0, 0, 0, 0) != 0) {
+		pr_perror("failed to set process as non-dumpable");
 		exit(1);
 	}
 
