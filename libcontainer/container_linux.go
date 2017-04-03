@@ -549,6 +549,29 @@ func (c *linuxContainer) addCriuDumpMount(req *criurpc.CriuReq, m *configs.Mount
 	req.Opts.ExtMnt = append(req.Opts.ExtMnt, extMnt)
 }
 
+func (c *linuxContainer) addMaskPaths(req *criurpc.CriuReq) error {
+	for _, path := range c.config.MaskPaths {
+		fi, err := os.Stat(fmt.Sprintf("/proc/%d/root/%s", c.initProcess.pid(), path))
+		if err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return err
+		}
+		if fi.IsDir() {
+			continue
+		}
+
+		extMnt := &criurpc.ExtMountMap{
+			Key: proto.String(path),
+			Val: proto.String("/dev/null"),
+		}
+		req.Opts.ExtMnt = append(req.Opts.ExtMnt, extMnt)
+	}
+
+	return nil
+}
+
 func (c *linuxContainer) Checkpoint(criuOpts *CriuOpts) error {
 	c.m.Lock()
 	defer c.m.Unlock()
@@ -801,6 +824,16 @@ func (c *linuxContainer) Restore(process *Process, criuOpts *CriuOpts) error {
 			}
 			break
 		}
+	}
+
+	if len(c.config.MaskPaths) > 0 {
+		m := &configs.Mount{Destination: "/dev/null", Source: "/dev/null"}
+		c.addCriuRestoreMount(req, m)
+	}
+
+	for _, node := range c.config.Devices {
+		m := &configs.Mount{Destination: node.Path, Source: node.Path}
+		c.addCriuRestoreMount(req, m)
 	}
 
 	if criuOpts.EmptyNs&syscall.CLONE_NEWNET == 0 {
